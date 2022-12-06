@@ -8,6 +8,7 @@ import (
 	"github.com/piquette/finance-go/quote"
 )
 
+// commit check
 func AppleQuote() {
 	q, err := quote.Get("AAPL")
 	if err != nil {
