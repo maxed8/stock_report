@@ -3,22 +3,15 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/piquette/finance-go/quote"
 )
 
-// commit check
-func AppleQuote() {
-	q, err := quote.Get("AAPL")
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(q.RegularMarketOpen)
-	fmt.Println(q.TwoHundredDayAverage)
-	fmt.Println(q.TwoHundredDayAverageChange)
-	fmt.Println(q.TwoHundredDayAverageChangePercent)
-}
+// use main package
+// command line tool - take in credential, send slack webhook daily to that slack webhook account
+// use cobra library
 
 // pull stock symbols from SNP500
 // https://github.com/datasets/s-and-p-500-companies/tree/master/data
@@ -37,30 +30,33 @@ func ReadSymbols() {
 	for scanner.Scan() {
 		symbols = append(symbols, scanner.Text())
 	}
-	counter := 1
+	GetQuotes(symbols)
+}
+
+// if current price is average change outside of two hundred day average
+// if current price < average price - 5 * abs(price change)
+func GetQuotes(symbols []string) {
+	var undervalued = map[string]map[string]float64{}
+	var overvalued = map[string]map[string]float64{}
 	for _, ticker := range symbols {
-		fmt.Println(counter)
-		GetQuote(ticker)
-		counter++
-	}
-}
+		q, err := quote.Get(ticker)
+		if err == nil && q != nil {
+			var stock = map[string]float64{
+				"price":         q.RegularMarketOpen,
+				"average":       q.TwoHundredDayAverage,
+				"averageChange": math.Abs(q.TwoHundredDayAverageChange),
+			}
+			if stock["price"] < stock["average"]-5*stock["averageChange"] {
+				undervalued[ticker] = stock
+			}
 
-func GetQuote(ticker string) {
-	q, err := quote.Get(ticker)
-	if err != nil {
-		return
-	} else {
-		fmt.Println(q.Symbol)
-		fmt.Println(q.RegularMarketOpen)
-		fmt.Println(q.TwoHundredDayAverage)
-		fmt.Println(q.TwoHundredDayAverageChange)
-		fmt.Println(q.TwoHundredDayAverageChangePercent)
-		fmt.Println("---------------------")
+			if stock["price"] > stock["average"]+5*stock["averageChange"] {
+				overvalued[ticker] = stock
+			}
+		}
 	}
-}
-
-func CalculateValue() {
-	return
+	fmt.Println(undervalued)
+	fmt.Println(overvalued)
 }
 
 func FormatOutput() {
