@@ -6,17 +6,19 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"time"
 
+	"github.com/go-co-op/gocron"
 	"github.com/piquette/finance-go/quote"
 	"github.com/slack-go/slack"
 )
 
 // need to do webhook
 // schedule it at certain time on every weekday/day market is open
-// then do CLI/CLT with user credentials
 // then comment the code
 // write the read me
 // do the style/coverage tests?
+// other documentation
 // turn in
 
 // use main package
@@ -90,16 +92,29 @@ func FormatOutput(stocks map[string]map[string]map[string]float64) string {
 func SendWebhook(url string, outputString string) {
 	var message slack.WebhookMessage
 	message.Text = outputString
-	slack.PostWebhook("https://hooks.slack.com/services/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", &message)
+	slack.PostWebhook(url, &message)
+}
+
+func RunAnalysis(webhookURL string) {
+
+	symbols := ReadSymbols()
+	stocks := GetQuotes(symbols)
+	outputString := FormatOutput(stocks)
+	fmt.Println(outputString)
+	SendWebhook(webhookURL, outputString)
+}
+
+func RunCronJob(webhookURL string) {
+	s := gocron.NewScheduler(time.UTC)
+	s.Every(2).Minutes().Do(func() {
+		RunAnalysis(webhookURL)
+	})
+	s.StartBlocking()
 }
 
 func main() {
 	fmt.Println("Enter your Slack Webhook URL: ")
 	var webhookURL string
 	fmt.Scanln(&webhookURL)
-	symbols := ReadSymbols()
-	stocks := GetQuotes(symbols)
-	outputString := FormatOutput(stocks)
-	fmt.Println(outputString)
-	SendWebhook(webhookURL, outputString)
+	RunCronJob(webhookURL)
 }
