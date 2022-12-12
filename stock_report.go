@@ -119,7 +119,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	c := cron.New()
-	c.AddFunc("* * * * *", func() { RunAnalysis(webhookURL) })
+	c.AddFunc("0 9 * * 1-5", func() { RunAnalysis(webhookURL) })
 	c.Start()
 	wg.Wait()
 }
