@@ -19,9 +19,9 @@ Simply download the repository and run the main file. The command line will prom
 To use stock_report, you will need a unique webhook url. This can be created by following the instructions here: https://slack.com/help/articles/115005265063-Incoming-webhooks-for-Slack.
 
 If you would like to edit the frequency or time of the report, you can edit this line:
-
-Markup : 'code(c.AddFunc("0 9 * * 1-5", func() { RunAnalysis(webhookURL) }))'
-
+```
+c.AddFunc("0 9 * * 1-5", func() { RunAnalysis(webhookURL) })
+```
 This link can help you with crontab customization: https://crontab.guru/
 
 ## Contributions
