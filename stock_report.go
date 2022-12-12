@@ -6,29 +6,17 @@ import (
 	"math"
 	"os"
 	"strconv"
-	"time"
+	"sync"
 
-	"github.com/go-co-op/gocron"
 	"github.com/piquette/finance-go/quote"
+	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
 )
 
-// need to do webhook
-// schedule it at certain time on every weekday/day market is open
-// then comment the code
-// write the read me
-// do the style/coverage tests?
-// other documentation
-// turn in
-
-// use main package
-// command line tool - take in credential, send slack webhook daily to that slack webhook account
-
-// pull stock symbols from SNP500
-// https://github.com/datasets/s-and-p-500-companies/tree/master/data
-// for each symbol, figure out which check to run
-// add it to the list of callouts - both undervalued and overvalued
-// then format and send to webhook
+/*
+The ReadSymbols function reads in an external file and returns a list of the
+stock symbols in the SNP500
+*/
 func ReadSymbols() []string {
 	file, err := os.Open("snp500_symbols.txt")
 	if err != nil {
@@ -43,9 +31,12 @@ func ReadSymbols() []string {
 	return symbols
 }
 
-// if current price is average change outside of two hundred day average
-// if current price < average price - 5 * abs(price change)
-// 5 SDs away from average
+/*
+The GetQuotes function takes in a list of stock symbols from the SNP500
+It determines which stocks are overvalued and undervalued by finding the
+stocks that are more than 5 standard deviations away from their 200 day average
+It then returns a map containing the target stocks
+*/
 func GetQuotes(symbols []string) map[string]map[string]map[string]float64 {
 	var undervalued = map[string]map[string]float64{}
 	var overvalued = map[string]map[string]float64{}
@@ -72,6 +63,11 @@ func GetQuotes(symbols []string) map[string]map[string]map[string]float64 {
 	return stocks
 }
 
+/*
+The FormatOutput function takes in a map of overvalued and undervalued stocks
+and formats it for the webhook in a user-readable way
+This output string is returned
+*/
 func FormatOutput(stocks map[string]map[string]map[string]float64) string {
 	outputString := "Good morning! \n"
 	for value, stocks := range stocks {
@@ -89,12 +85,18 @@ func FormatOutput(stocks map[string]map[string]map[string]float64) string {
 	return outputString
 }
 
+// The SendWebhook function takes in the webhook url and the message and sends the message to a slack webhook
 func SendWebhook(url string, outputString string) {
 	var message slack.WebhookMessage
 	message.Text = outputString
 	slack.PostWebhook(url, &message)
 }
 
+/*
+The RunAnalysis function calls all the helper functions to read in the stock symbols,
+get quotes for each ticker and determine which ones are overvalued and undervalued,
+formats the output, and sends it to the slack webhook
+*/
 func RunAnalysis(webhookURL string) {
 
 	symbols := ReadSymbols()
@@ -104,17 +106,20 @@ func RunAnalysis(webhookURL string) {
 	SendWebhook(webhookURL, outputString)
 }
 
-func RunCronJob(webhookURL string) {
-	s := gocron.NewScheduler(time.UTC)
-	s.Every(2).Minutes().Do(func() {
-		RunAnalysis(webhookURL)
-	})
-	s.StartBlocking()
-}
-
+/*
+The main function prompts the user for their unique slack webhook url
+It then calls the RunAnalysis function with the webhook url
+It calls this function every weekday at 9am using a cron function
+*/
 func main() {
 	fmt.Println("Enter your Slack Webhook URL: ")
 	var webhookURL string
 	fmt.Scanln(&webhookURL)
-	RunCronJob(webhookURL)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	c := cron.New()
+	c.AddFunc("* * * * *", func() { RunAnalysis(webhookURL) })
+	c.Start()
+	wg.Wait()
 }
